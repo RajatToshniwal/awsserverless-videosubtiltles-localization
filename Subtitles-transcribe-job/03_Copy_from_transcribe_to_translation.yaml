@@ -1,0 +1,171 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  TriggerFileName:
+    Type: String
+    Default: '.vtt'
+  S3SrcBucket:
+    Type: String
+    Default: transcribebucket210700266139-us-east-1
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
+  S3DestBucket:
+    Type: String
+    Default: translate-captions-bucket-00e954d0-4883-11ec-aab5-12f248c8fd2b
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
+  Destinationbucketprefix:
+    Type: String
+    Default: input
+
+Resources:
+  BucketCopyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-lambda-s3copy'
+      Handler: index.lambda_handler
+      Role: !GetAtt BucketCopyLambdaExecutionRole.Arn
+      Runtime: python3.8
+      MemorySize: 512
+      Timeout: 300
+      PackageType: Zip
+      Code:
+        ZipFile: |
+          #!/usr/bin/python
+          # -*- coding: utf-8 -*-
+          import boto3
+          import json
+          import logging
+          import os
+          from pathlib import Path
+          s3 = boto3.client('s3')
+
+          logging.basicConfig(level=logging.DEBUG)
+          logger = logging.getLogger(__name__)
+
+
+          def lambda_handler(event, context):
+              logger.info('request: {}'.format(event))
+              record = event['Records'][0]
+              s3srcbucket = record['s3']['bucket']['name']
+              s3srcobject = record['s3']['object']['key']
+              dest_bucket = os.environ['Destination_Bucket']
+              print s3srcbucket
+              print dest_bucket
+              print s3srcobject
+              copy_source = {'Bucket': s3srcbucket, 'Key': s3srcobject}
+              dest_prefix = os.environ['Destination_Bucket_Prefix']
+              dest_key = dest_prefix + '/' + Path(s3srcobject).name
+              print dest_key
+
+              # Copy Source Object
+
+              copy_source_object = {'Bucket': s3srcbucket, 'Key': s3srcobject}
+
+           # S3 copy object operation
+
+              s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
+                             Key=dest_key)
+              return {'statusCode': 200,
+                      'body': json.dumps('Copy Success!')}
+      Environment:
+        Variables:
+          Destination_Bucket:
+            Ref: S3DestBucket
+          Destination_Bucket_Prefix:
+            Ref: Destinationbucketprefix
+
+
+  BucketCopyLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: 'lambda:InvokeFunction'
+        FunctionName: !Ref BucketCopyLambdaFunction
+        Principal: s3.amazonaws.com
+        SourceArn: 
+          !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref S3SrcBucket
+        SourceAccount: !Ref AWS::AccountId
+
+  BucketCopyLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+        - PolicyName: allowLogging
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: getObjects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:GetObject
+              Resource:
+                !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref S3SrcBucket
+                    - '/*'
+        - PolicyName: listBucket
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource:
+                !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref S3SrcBucket
+        - PolicyName: getandPutObjects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:GetObject
+              - s3:PutObject
+              Resource:
+                !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3DestBucket
+                  - '/*'
+        - PolicyName: destlistBucket
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource:
+                !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref S3DestBucket
+Outputs:
+  
+  BucketCopyLambdaFunctionARN:
+    Description: 'ARN of the lambda function'
+    Value: !GetAtt
+            - BucketCopyLambdaFunction
+            - Arn
+    Export:
+      Name: 
+       'Fn::Sub': '${AWS::StackName}-BucketCopyLambdaFunctionARN'

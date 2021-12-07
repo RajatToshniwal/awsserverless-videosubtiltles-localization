@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  S3Bucket:
+    Description: Name of the s3 stack so import the S3 bucket arn
+    Type: String
+    Default: 'transcribebucket'
+
+Resources:
+  TranscribeLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: 'lambda:InvokeFunction'
+        FunctionName: !Ref TranscribeLambdaFunction
+        Principal: s3.amazonaws.com
+        SourceArn: 
+          !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref S3Bucket
+              - !Ref AWS::AccountId
+              - "-"
+              - !Ref AWS::Region
+        SourceAccount: !Ref AWS::AccountId
+
+  TranscribeLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+        - PolicyName: allowLogging
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: getAndPutObjects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:GetObject
+              - s3:PutObject
+              Resource:
+                !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref S3Bucket
+                    - !Ref AWS::AccountId
+                    - "-"
+                    - !Ref AWS::Region
+                    - '/*'
+
+        - PolicyName: listBucket
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource:
+                !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref S3Bucket
+                    - !Ref AWS::AccountId
+                    - "-"
+                    - !Ref AWS::Region
+        - PolicyName: Transcribe
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - transcribe:GetTranscriptionJob
+                  - transcribe:StartTranscriptionJob
+                Resource:
+                  - "*"
+
+  TranscribeLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-lambda-transcribe'
+      Code:
+        ZipFile: |
+          import boto3
+          import uuid
+          import json
+          import os
+          import re
+          import urllib.parse
+          from pathlib import Path
+          client = boto3.client('transcribe')
+          s3_host = f"s3-{os.environ['AWS_REGION']}.amazonaws.com"
+          def get_media_format(path):
+              if re.search('.wav$', path) is not None:
+                  return 'wav'
+              elif re.search('.flac$', path) is not None:
+                  return 'flac'
+              elif re.search('.amr$', path) is not None:
+                  return 'amr'
+              elif re.search('.3ga$', path) is not None:
+                  return 'amr'
+              elif re.search('.mp3$', path) is not None:
+                  return 'mp3'
+              elif re.search('.mp4$', path) is not None:
+                  return 'mp4'
+              elif re.search('.m4a$', path) is not None:
+                  return 'mp4'
+              elif re.search('.oga$', path) is not None:
+                  return 'ogg'
+              elif re.search('.ogg$', path) is not None:
+                  return 'ogg'
+              elif re.search('.opus$', path) is not None:
+                  return 'ogg'
+              elif re.search('.webm$', path) is not None:
+                  return 'webm'
+              else:
+                  return 'mp3'
+          def get_s3_metadata(bucket, key):
+              return s3.head_object(Bucket=bucket, Key=key)['Metadata']
+
+          def lambda_handler(event, context):
+              record = event['Records'][0]
+              s3bucket = record['s3']['bucket']['name']
+              s3object = record['s3']['object']['key']
+              s3object_key = urllib.parse.unquote_plus(s3object)
+              jobName = Path(s3object).name  + '#' + str(uuid.uuid4())
+              outputbucket= s3bucket
+              print(f"Starting transcription job: {jobName}")
+              print(f"Object: {s3bucket}/{s3object_key}")
+              response = client.start_transcription_job(
+                TranscriptionJobName=jobName,
+                LanguageCode='en-US',
+                MediaFormat=get_media_format(s3object_key),
+                Media={
+                  'MediaFileUri': f"https://{s3_host}/{s3bucket}/{s3object_key}"
+                },
+                Subtitles={
+                  'Formats': [
+                      'vtt','srt',
+                  ]
+              },
+                OutputBucketName = outputbucket,
+                OutputKey='transoutput/'
+              )
+              return {
+              'TranscriptionJobName': response['TranscriptionJob']['TranscriptionJobName']
+            }
+      Handler: index.lambda_handler
+      Role: !GetAtt TranscribeLambdaExecutionRole.Arn
+      Runtime: python3.8
+      MemorySize: 512
+      Timeout: 300
+Outputs:
+  
+  TranscribeLambdaFunctionARN:
+    Description: 'ARN of the lambda function'
+    Value: !GetAtt
+            - TranscribeLambdaFunction
+            - Arn
+    Export:
+      Name: 
+       'Fn::Sub': '${AWS::StackName}-TranscribeLambdaFunctionARN'

@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  AccessControl:
+    Type: String
+    Default: 'Private'
+    AllowedValues:
+      - 'Private'
+      - 'Public-read'
+      - 'Public-read-write'
+      - 'Aws-exec-read'
+      - 'Authenticated-read'
+      - 'Bucket-owner-read'
+      - 'Bucket-owner-full-control'
+      - 'Log-delivery-write'
+  Versioning:
+    Type: String
+    Default: 'Suspended'
+    AllowedValues:
+      - 'Enabled'
+      - 'Suspended'
+  TransBucketName:
+    Type: String
+    Default: transcribe
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
+  Owner:
+    Type: String
+    Default: transcribe
+  DirsToCreate:
+    Description: "Comma delimited list of directories to create."
+    Type: CommaDelimitedList
+  TranscribeLambdaStack:
+    Type: String
+    Default: subtitles-transcribe-lambda
+  S3CopyBucketLambdaStack:
+    Type: String
+    Default: subtitles-transcribe-lambda
+Resources:
+  transs3bucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: !Ref AccessControl
+      BucketName:
+          Fn::Join:
+              - ""
+              - - !Ref TransBucketName
+                - !Ref AWS::AccountId
+                - "-"
+                - !Ref AWS::Region
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - PUT
+            AllowedOrigins:
+              - '*'
+      VersioningConfiguration:
+        Status: !Ref Versioning
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                - Name: prefix
+                  Value: transinput
+            Function:
+              !Join
+                - ''
+                - - Fn::ImportValue:
+                      !Sub "${TranscribeLambdaStack}-TranscribeLambdaFunctionARN"
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                - Name: prefix
+                  Value: transoutput
+                - Name: suffix
+                  Value: .vtt
+            Function:
+              !Join
+                - ''
+                - - Fn::ImportValue:
+                      !Sub "${S3CopyBucketLambdaStack}-BucketCopyLambdaFunctionARN"
+      Tags:
+      - Key: Owner
+        Value: !Ref Owner 
+
+  S3CustomResource:
+    Type: Custom::S3CustomResource
+    Properties:
+      ServiceToken: !GetAtt AWSLambdaFunction.Arn
+      the_bucket: !Ref transs3bucket
+      dirs_to_create: !Ref DirsToCreate
+  AWSLambdaFunction:
+     Type: "AWS::Lambda::Function"
+     Properties:
+       Description: "Work with S3 Buckets!"
+       FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-lambda-s3createdirs'
+       Handler: index.handler
+       Role: !GetAtt AWSLambdaExecutionRole.Arn
+       Timeout: 360
+       Runtime: python3.6
+       Code:
+         ZipFile: |
+          import boto3
+          import cfnresponse
+          def handler(event, context):
+              # Init ...
+              the_event = event['RequestType']
+              print("The event is: ", str(the_event))
+              response_data = {}
+              s_3 = boto3.client('s3')
+              # Retrieve parameters
+              the_bucket = event['ResourceProperties']['the_bucket']
+              dirs_to_create = event['ResourceProperties']['dirs_to_create']
+              try:
+                  if the_event in ('Create', 'Update'):
+                      print("Requested folders: ", str(dirs_to_create))
+                      for dir_name in dirs_to_create:
+                          print("Creating: ", str(dir_name))
+                          s_3.put_object(Bucket=the_bucket,
+                                         Key=(dir_name
+                                              + '/'))
+                  elif the_event == 'Delete':
+                      print("Deleting S3 content...")
+                      b_operator = boto3.resource('s3')
+                      b_operator.Bucket(str(the_bucket)).objects.all().delete()
+                  # Everything OK... send the signal back
+                  print("Operation successful!")
+                  cfnresponse.send(event,
+                                   context,
+                                   cfnresponse.SUCCESS,
+                                   response_data)
+              except Exception as e:
+                  print("Operation failed...")
+                  print(str(e))
+                  response_data['Data'] = str(e)
+                  cfnresponse.send(event,
+                                   context,
+                                   cfnresponse.FAILED,
+                                   response_data)
+  AWSLambdaExecutionRole:
+     Type: AWS::IAM::Role
+     Properties:
+       AssumeRolePolicyDocument:
+         Statement:
+         - Action:
+           - sts:AssumeRole
+           Effect: Allow
+           Principal:
+             Service:
+             - lambda.amazonaws.com
+         Version: '2012-10-17'
+       Path: "/"
+       Policies:
+       - PolicyDocument:
+           Statement:
+           - Action:
+             - logs:CreateLogGroup
+             - logs:CreateLogStream
+             - logs:PutLogEvents
+             Effect: Allow
+             Resource: arn:aws:logs:*:*:*
+           Version: '2012-10-17'
+         PolicyName: !Sub ${AWS::StackName}-${AWS::Region}-AWSLambda-s3-create-dirs
+       - PolicyDocument:
+           Statement:
+           - Action:
+             - s3:PutObject
+             - s3:DeleteObject
+             - s3:List*
+             Effect: Allow
+             Resource:
+             - !Sub arn:aws:s3:::${transs3bucket}/*
+             - !Sub arn:aws:s3:::${transs3bucket}
+           Version: '2012-10-17'
+         PolicyName: !Sub ${AWS::StackName}-${AWS::Region}-AWSLambda-S3
+       RoleName: !Sub ${AWS::StackName}-${AWS::Region}-AWSLambdaExecutionRole 
+
+
+Outputs:
+  
+  transbucketARN:
+    Description: 'ARN of the bucket'
+    Value: !GetAtt
+            - transs3bucket
+            - Arn
+    Export:
+      Name: 
+       'Fn::Sub': '${AWS::StackName}-transbucketARN'

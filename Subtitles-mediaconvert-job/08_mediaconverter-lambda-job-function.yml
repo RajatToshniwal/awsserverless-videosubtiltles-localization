@@ -1,0 +1,199 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  TriggerFileName:
+    Type: String
+    Default: '.vtt'
+  S3SrcBucket:
+    Type: String
+    Default: translate-captions-bucket-00e954d0-4883-11ec-aab5-12f248c8fd2b
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
+  S3DestBucket:
+    Type: String
+    Default: mediaconvert210700266139-us-east-1
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
+  Destinationbucketprefix:
+    Type: String
+    Default: mediacaption
+  Destinationbucketprefixvideo:
+    Type: String
+    Default: mediavideo
+  S3SrcBucketOrigSrc:
+    Type: String
+    Default: transcribebucket210700266139-us-east-1
+  S3SrcBucketOrigSrcprefix:
+    Type: String
+    Default: transinput
+  SourceZipFileBucketName:
+    Type: String
+    Default: subtitles-demo-public-package
+Resources:  
+  MediaConvertRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-MediaConvertRole"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "mediaconvert.amazonaws.com"
+                - "mediaconvert.us-east-1.amazonaws.com"
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${AWS::StackName}-MediaConvertPolicy"
+          PolicyDocument:
+            Statement:
+              - Effect: "Allow"
+                Action: "s3:*"
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - "cloudwatch:*"
+                  - "logs:*"
+                  - "sns:*"
+                Resource: "*"
+  BucketCopyLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-${AWS::Region}-lambda-s3mccopy'
+      Handler: Subtitles_mediaConverter_lambda_code.lambda_handler
+      Role: !GetAtt BucketCopyLambdaExecutionRole.Arn
+      Runtime: python3.8
+      MemorySize: 512
+      Timeout: 300
+      PackageType: Zip
+      Code:
+        S3Bucket: !Ref SourceZipFileBucketName
+        S3Key: "mediaconvert_lambda.zip"
+      Environment:
+        Variables:
+          Destination_Bucket:
+            Ref: S3DestBucket
+          Destination_Bucket_Prefix:
+            Ref: Destinationbucketprefix
+          Source_Orig_Bucket:
+            Ref: S3SrcBucketOrigSrc
+          Source_Orig_Bucket_Prefix:
+            Ref: S3SrcBucketOrigSrcprefix
+          Destination_Bucket_Prefix_Video:
+            Ref: Destinationbucketprefixvideo
+          MediaConvert_Role_ARN:
+            Fn::Join:
+              - ""
+              - - 'arn:aws:iam::'
+                - !Ref AWS::AccountId
+                - ":role/"
+                - !Ref MediaConvertRole
+
+  BucketCopyLambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: 'lambda:InvokeFunction'
+        FunctionName: !Ref BucketCopyLambdaFunction
+        Principal: s3.amazonaws.com
+        SourceArn: 
+          !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref S3SrcBucket
+        SourceAccount: !Ref AWS::AccountId
+
+  BucketCopyLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+        - PolicyName: allowLogging
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: getObjects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:GetObject
+              Resource: 
+                - !Join ['',['arn:aws:s3:::', !Ref S3SrcBucket,'/*']]
+                - !Join ['',['arn:aws:s3:::', !Ref S3SrcBucketOrigSrc,'/*' ]]                
+        - PolicyName: listBucket
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource:
+                - !Join ['',['arn:aws:s3:::', !Ref S3SrcBucket]]
+                - !Join ['',['arn:aws:s3:::', !Ref S3SrcBucketOrigSrc]]
+        - PolicyName: getandPutObjects
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:GetObject
+              - s3:PutObject
+              Resource:
+                !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3DestBucket
+                  - '/*'
+        - PolicyName: destlistBucket
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:ListBucket
+              Resource:
+                !Join
+                  - ''
+                  - - 'arn:aws:s3:::'
+                    - !Ref S3DestBucket
+        - PolicyName: mediaconvertpolicyfullaccess
+          PolicyDocument: 
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - "mediaconvert:*"
+              Resource: '*'
+            - Effect: Allow
+              Action: iam:PassRole
+              Resource: 
+                !Join
+                  - ''
+                  - - 'arn:aws:iam::'
+                    - !Ref AWS::AccountId
+                    - ':role/'
+                    - !Ref AWS::StackName
+                    - "MediaConvertRole"     
+
+Outputs:
+  
+  BucketCopyLambdaFunctionARN:
+    Description: 'ARN of the Lambda'
+    Value: !GetAtt
+            - BucketCopyLambdaFunction
+            - Arn
+    Export:
+      Name: 
+       'Fn::Sub': '${AWS::StackName}-BucketCopyLambdaFunctionARN'

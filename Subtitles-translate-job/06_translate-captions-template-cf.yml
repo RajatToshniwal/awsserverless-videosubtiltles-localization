@@ -1,0 +1,304 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: A serverless pipeline to translate VTT or SRT format captions files using
+  Amazon Translate.
+Parameters:
+  SourceLanguageCode:
+    Type: String
+    Default: en
+  TargetLanguageCode:
+    Type: String
+    Default: es
+  TriggerFileName:
+    Type: String
+    Default: triggerfile
+Resources:
+  bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName:
+        Fn::Join:
+        - ''
+        - - translate-captions-bucket-
+          - Fn::Select:
+            - 2
+            - Fn::Split:
+              - /
+              - Ref: AWS::StackId
+  S3CaptionsFolderCreationPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          - s3:GetObjectAcl
+          - s3:PutObject
+          - s3:PutObjectAcl
+          Resource:
+            Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+              - /*
+  TranslateCaptionsServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: translate.amazonaws.com
+        Version: '2012-10-17'
+  TranslateCaptionsServiceRoleDefaultPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action:
+          - s3:GetObject
+          - s3:PutObject
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+              - /*
+        - Action:
+          - s3:ListBucket
+          Effect: Allow
+          Resource:
+          - Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+        Version: '2012-10-17'
+      ManagedPolicyName: TranslateCaptionsServiceRoleDefaultPolicy
+      Roles:
+      - Ref: TranslateCaptionsServiceRole
+  S3CaptionsFileTriggerEventProcessorPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:ListBucket
+          Resource:
+            Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          - s3:GetObjectAcl
+          - s3:PutObject
+          - s3:PutObjectAcl
+          - s3:GetObjectTagging
+          - S3:PutObjectTagging
+          - s3:DeleteObject
+          Resource:
+            Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+              - /*
+        - Effect: Allow
+          Action:
+          - iam:PassRole
+          Resource:
+            Fn::GetAtt:
+            - TranslateCaptionsServiceRole
+            - Arn
+        - Effect: Allow
+          Action:
+          - translate:StartTextTranslationJob
+          Resource:
+          - '*'
+      ManagedPolicyName: S3CaptionsFileTriggerEventProcessorPolicy
+  TranslateCaptionsJobEventProcessorPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - translate:DescribeTextTranslationJob
+          Resource:
+          - '*'
+        - Effect: Allow
+          Action:
+          - s3:ListBucket
+          Resource:
+            Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          - s3:GetObjectAcl
+          - s3:PutObject
+          - s3:PutObjectAcl
+          - s3:DeleteObject
+          Resource:
+            Fn::Join:
+            - ''
+            - - arn:aws:s3:::translate-captions-bucket-
+              - Fn::Select:
+                - 2
+                - Fn::Split:
+                  - /
+                  - Ref: AWS::StackId
+              - /*
+      ManagedPolicyName: TranslateCaptionsJobEventProcessorPolicy
+  S3CaptionsFolderCreate:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://aws-ml-blog/artifacts/translate-captions-files/v2/37e6df4041e8125c462e4004c2b2ca2b
+      Handler: s3_folder_create.handler
+      Runtime: python3.8
+      Description: Python Function to create S3 folders
+      MemorySize: 128
+      Timeout: 30
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - AWSLambda_ReadOnlyAccess
+      - AWSXrayWriteOnlyAccess
+      - Ref: S3CaptionsFolderCreationPolicy
+      Tracing: Active
+  CreateS3Folder:
+    Type: Custom::CreateS3Folder
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+        - S3CaptionsFolderCreate
+        - Arn
+      S3Bucket:
+        Ref: bucket
+  S3CaptionsFileEventProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://aws-ml-blog/artifacts/translate-captions-files/v2/e39e75e12588363de34410235b1f4bb1
+      Handler: s3_event_handler.lambda_handler
+      Runtime: python3.8
+      Description: Python Function to covert the source VTT or SRT Files to demlimited
+        files for Translation
+      MemorySize: 1024
+      Timeout: 300
+      Environment:
+        Variables:
+          SOURCE_LANG_CODE:
+            Ref: SourceLanguageCode
+          TARGET_LANG_CODE:
+            Ref: TargetLanguageCode
+          TRIGGER_NAME:
+            Ref: TriggerFileName
+          S3_ROLE_ARN:
+            Fn::GetAtt:
+            - TranslateCaptionsServiceRole
+            - Arn
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - AWSLambda_ReadOnlyAccess
+      - AWSXrayWriteOnlyAccess
+      - Ref: S3CaptionsFileTriggerEventProcessorPolicy
+      Tracing: Active
+      Events:
+        s3Notification:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: bucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                - Name: prefix
+                  Value: input/
+                - Name: suffix
+                  Value:
+                    Ref: TriggerFileName
+  TranslateCaptionsJobEventProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: s3://aws-ml-blog/artifacts/translate-captions-files/v2/e39e75e12588363de34410235b1f4bb1
+      Handler: translate_job_event_handler.lambda_handler
+      Runtime: python3.8
+      Description: Python function to process the Translate Job completion event
+      MemorySize: 1024
+      Timeout: 300
+      Environment:
+        Variables:
+          DELETE_INTERMEDIATE_FILES: true
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - AWSLambda_ReadOnlyAccess
+      - AWSXrayWriteOnlyAccess
+      - Ref: TranslateCaptionsJobEventProcessorPolicy
+      Tracing: Active
+      Events:
+        EventBridgeRule1:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+              - aws.translate
+              detail-type:
+              - Translate TextTranslationJob State Change
+            Target:
+              Id:
+                Ref: TranslateCaptionsJobEventProcessor
+Outputs:
+  TranslateS3Bucket:
+    Description: Amazon S3 bucket for document processing
+    Value:
+      Fn::Join:
+      - ''
+      - - translate-captions-bucket-
+        - Fn::Select:
+          - 2
+          - Fn::Split:
+            - /
+            - Ref: AWS::StackId
+  S3FileEventProcessor:
+    Description: AWS Lambda function triggered when a VTT or SRT files are uploaded
+    Value:
+      Ref: S3CaptionsFileEventProcessor
+  TranslateCaptionsJobEventProcessor:
+    Description: AWS Lambda function triggered on the completion of the Amazon Translate
+      Job and it generates the translated document
+    Value:
+      Ref: TranslateCaptionsJobEventProcessor
