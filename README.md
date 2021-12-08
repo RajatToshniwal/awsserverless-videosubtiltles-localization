@@ -50,8 +50,8 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 ## Implementation steps
 1.	Log in to your AWS account and access Cloudformation in the AWS console.
 2.	Deploy the translation job using the cloudformation template placed in Subtitles-translate-job/06_translate-captions-template-cf.yml
-     * StackName: translation-caption-job
-     * Parameters:
+* StackName: translation-caption-job
+* Parameters:
  
 ![Alt Image text](/Images/translation-paremeter.png?raw=true "translation-job")
 
