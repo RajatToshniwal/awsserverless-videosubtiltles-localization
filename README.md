@@ -33,8 +33,8 @@ Three buckets will be created one for each of the services used.
     * Lambda will read the file, create a corresponding HTML tag delimited test file and stores it in the caption-in file.
     * This will invoke another lambda function which calls the AWS translate service to convert the HTML tag delimited file to the language of choice.
     * AWS translate job place the translated file in the Amazon S3 bucket and emits an Amazon event bridge event when it is done. Event bridge call another lambda function.
-    * This lambda function will read the delimited files from Amazon S3, creates the captions file in the required format (WEBVTT and SRT) and stores them in the output folder of the bucket.
-**Note:** - Code and solution for translation is taken from the below mentioned stack. I have only included it in my overall solution or flow. Though this template is now present in my repository as well.
+    * This lambda function will read the delimited files from Amazon S3, creates the captions file in the required format (WEBVTT and SRT) and stores them in the output folder of the bucket.</br>
+**Note: - Code and solution for translation is taken from the below mentioned stack. I have only included it in my overall solution or flow. Though this template is now present in my repository as well.**</br>
 https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/translate-captions-template-cf.yml
 3.	**MediaConvert bucket:** As soon as the file is generated in the “output” folder of the Translate bucket, it will trigger another lambda function.
      * Lambda function will copy the generated captions file into the “mediacaptions” folder of the MediaConvert bucket.
