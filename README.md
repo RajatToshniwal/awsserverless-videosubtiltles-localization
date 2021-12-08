@@ -46,3 +46,21 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 2.   Its better to use some database to track which caption file is tied to which video file. For now, I have just written a hack using “-” as delimiter to identify the video file.
 3.   Step function can be used for the overall tracking of the jobs.
 4.   Code for error handling is not very extensive, though cloudwatch logs are used for each of the services.
+
+## Implementation steps
+1.	Log in to your AWS account and access Cloudformation in the AWS console.
+2.	Deploy the translation job using the cloudformation template placed in Subtitles-translate-job/06_translate-captions-template-cf.yml
+     * StackName: translation-caption-job
+     * Parameters:
+ 
+![Alt Image text](/Images/translation-paremeter.png?raw=true "translation-job")
+
+**Note: I have marked one parameters in Red as you will not see them in the initial template, later we will modify this template to include notifications for both transinput and transoutput folder, there we will include this parameters for importing variables from other stacks. This is to avoid circular dependencies of event notifications.**
+
+* Resources:
+     * * AWS S3 bucket for translation
+          * * IAM Policies and Roles for translation service and lambda
+     * * Event Rule
+     * * Lambda function
+     * * Custom S3 Folders
+
