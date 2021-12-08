@@ -67,6 +67,9 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 3.	Next create the transcribe buckets using the cloudformation template placed in Subtitles-transcribe-job/01_transcribe-s3bucket.yaml. We will include event notifications in the same template later on and re-run it to avoid the circular dependencies.
  * Stackname: Subtitles-transcribe-bucket
  * Parameters
+
+![Alt Image text](/Images/transcribe-bucket-parameter.png?raw=true "transcribe-bucket")
+ 
  
 
 **Note: I have marked two parameters in Red as you will not see them in the initial template, later we will modify this template to include notifications for both transinput and transoutput folder, there we will need both of these parameters for importing variables from other stacks. This is to avoid circular dependencies of event notifications.**
@@ -78,7 +81,9 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 4.	Next, we will create the lambda function to trigger the transcribe service. This function will be responsible for creating the transcribe jobs for extracting the speech. Templates for the same are included in Subtitles-transcribe-job/02_transcribe_lambda_job.yaml
 * StackName: Subtitles-transcribe-lambda
 * Parameters: 
- 
+
+![Alt Image text](/Images/transcibe-lambda-job.png?raw=true "transcribe-lambda-job")
+
 
 * Resources:
      * * IAM Roles and permissions for the Lambda
@@ -86,6 +91,8 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 5.	Now, we will create a lambda function to copy extracted text file in the vtt format from transcribe bucket to the translate bucket. Templates are placed in Subtitles-transcribe-job/03_Copy_from_transcribe_to_translation.yaml.
 * StackName: Subtitles-S3Copy
 * Parameters:
+![Alt Image text](/Images/transcribe-to-translate-bucketcopy.png?raw=true "bucketcopy")
+
  
 * Resources:
      * * AWS IAM Roles and policy for the lambda function
