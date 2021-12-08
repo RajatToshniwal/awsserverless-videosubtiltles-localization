@@ -41,3 +41,8 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
      * Lambda function will copy the original video file from the “transinput” folder of the Transcribe bucket to the “mediavideos” folder of the MediaConvert bucket.
      * MediaConvert bucket creates a job in the AWS Elemental MediaConvert services to burn-in the translated captions with the original video.
 
+## Enhancements:
+1.   I have not written the delete object code for any bucket. Ideally it should be there to avoid the duplicity.
+2.   Its better to use some database to track which caption file is tied to which video file. For now, I have just written a hack using “-” as delimiter to identify the video file.
+3.   Step function can be used for the overall tracking of the jobs.
+4.   Code for error handling is not very extensive, though cloudwatch logs are used for each of the services.
