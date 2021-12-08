@@ -12,14 +12,14 @@ Created a small implementation to generate the captions for a video file, conver
 ![Alt Image text](/Images/Serverlessvideocaptions.drawio.png?raw=true "Overall architecture")
 
 ## Services Used
-**Cloudformation:** Infrastructure as a code. Whole infrastructure will be provisioned using cloudformation templates. I have tried to avoid the manual intervention as much as possible.
-**AWS Transcribe:** AWS service which is used to extract text from the speech. This is used in a solution to get the initial subtitles from the video file. I have used MP4 for this implementation. 
-**AWS Translate:** AWS service to translate the text into different languages. In this implementation I am converting subtitles from English to Hindi.
+1. **Cloudformation:** Infrastructure as a code. Whole infrastructure will be provisioned using cloudformation templates. I have tried to avoid the manual intervention as much as possible.
+2. **AWS Transcribe:** AWS service which is used to extract text from the speech. This is used in a solution to get the initial subtitles from the video file. I have used MP4 for this implementation. 
+3. **AWS Translate:** AWS service to translate the text into different languages. In this implementation I am converting subtitles from English to Hindi.
 **AWS MediaConvert:** AWS services which supports a broad range of functionalities to easily create VOD (Video on Demand). In this solution it is used to burn-in the captions in the existing video files.
-**AWS S3 bucket:** S3 is a storage which is holding various input and output files for different services.
-**AWS IAM:** Roles and policies for each of the services are configured through AWS IAM. 
-**AWS Lambda:** It is a serverless piece of AWS. In this solution it is used to trigger different actions and the services.
-**AWS Cloudwatch Logs:** To capture the logs of each of the services used in this solution.
+4. **AWS S3 bucket:** S3 is a storage which is holding various input and output files for different services.
+5. **AWS IAM:** Roles and policies for each of the services are configured through AWS IAM. 
+6. **AWS Lambda:** It is a serverless piece of AWS. In this solution it is used to trigger different actions and the services.
+7. **AWS Cloudwatch Logs:** To capture the logs of each of the services used in this solution.
 
 ## Solution Explanation
 Three buckets will be created one for each of the services used.
@@ -36,8 +36,8 @@ Three buckets will be created one for each of the services used.
     * This lambda function will read the delimited files from Amazon S3, creates the captions file in the required format (WEBVTT and SRT) and stores them in the output folder of the bucket.
 **Note:** - Code and solution for translation is taken from the below mentioned stack. I have only included it in my overall solution or flow. Though this template is now present in my repository as well.
 https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/translate-captions-template-cf.yml
-c)	MediaConvert bucket: As soon as the file is generated in the “output” folder of the Translate bucket, it will trigger another lambda function.
-a.	Lambda function will copy the generated captions file into the “mediacaptions” folder of the MediaConvert bucket.
-b.	Lambda function will copy the original video file from the “transinput” folder of the Transcribe bucket to the “mediavideos” folder of the MediaConvert bucket.
-c.	MediaConvert bucket creates a job in the AWS Elemental MediaConvert services to burn-in the translated captions with the original video.
+3.	**MediaConvert bucket:** As soon as the file is generated in the “output” folder of the Translate bucket, it will trigger another lambda function.
+     * Lambda function will copy the generated captions file into the “mediacaptions” folder of the MediaConvert bucket.
+     * Lambda function will copy the original video file from the “transinput” folder of the Transcribe bucket to the “mediavideos” folder of the MediaConvert bucket.
+     * MediaConvert bucket creates a job in the AWS Elemental MediaConvert services to burn-in the translated captions with the original video.
 
