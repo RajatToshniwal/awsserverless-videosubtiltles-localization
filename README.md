@@ -118,11 +118,12 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 9.	Once done, we will write the mediaconvert copy function and the mediaconvert job creation in the same function. Template for the same is placed in Subtitles-mediaconvert-job/08_mediaconverter-lambda-job-function.yml.
 * StackName: Subtitles-Mediaconvert-copy
 * Parameters: 
- 
+![Alt Image text](/Images/Mediaconvert-copy.png?raw=true "MediaConvertcopy") 
 
 10.	Now, we will update the translation-caption-job template so that event notification can be added as soon as the translated vtt file hits the “output” folder it will be copied to the mediaconvert bucket.
 * StackName: translation-caption-job
 * Parameters
  
+![Alt Image text](/Images/translation-parameter-final.png?raw=true "MediaConvertcopy")
 
 Put the video.mp4 file in the “transinput” folder of the transcribe bucket and output will be generated in the “mediavideo” bucket of the mediaconvert bucket. It may take up to 10 to 15 minutes.
