@@ -46,3 +46,84 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 2.   Its better to use some database to track which caption file is tied to which video file. For now, I have just written a hack using “-” as delimiter to identify the video file.
 3.   Step function can be used for the overall tracking of the jobs.
 4.   Code for error handling is not very extensive, though cloudwatch logs are used for each of the services.
+
+## Implementation steps
+1.	Log in to your AWS account and access Cloudformation in the AWS console.
+2.	Deploy the translation job using the cloudformation template placed in Subtitles-translate-job/06_translate-captions-template-cf.yml
+* StackName: translation-caption-job
+* Parameters:
+ 
+![Alt Image text](/Images/translation-paremeter.png?raw=true "translation-job")
+
+**Note: I have marked one parameters in Red as you will not see them in the initial template, later we will modify this template to include notifications for both transinput and transoutput folder, there we will include this parameters for importing variables from other stacks. This is to avoid circular dependencies of event notifications.**
+
+* Resources:
+     * * AWS S3 bucket for translation
+     * * IAM Policies and Roles for translation service and lambda
+     * * Event Rule
+     * * Lambda function
+     * * Custom S3 Folders
+
+3.	Next create the transcribe buckets using the cloudformation template placed in Subtitles-transcribe-job/01_transcribe-s3bucket.yaml. We will include event notifications in the same template later on and re-run it to avoid the circular dependencies.
+ * Stackname: Subtitles-transcribe-bucket
+ * Parameters
+
+![Alt Image text](/Images/transcribe-bucket-parameter.png?raw=true "transcribe-bucket")
+ 
+ 
+
+**Note: I have marked two parameters in Red as you will not see them in the initial template, later we will modify this template to include notifications for both transinput and transoutput folder, there we will need both of these parameters for importing variables from other stacks. This is to avoid circular dependencies of event notifications.**
+ * Resources:
+     * * AWS S3 bucket for transcribe
+     * * Custom S3 folders
+     * * IAM roles for Lambda custom function
+	
+4.	Next, we will create the lambda function to trigger the transcribe service. This function will be responsible for creating the transcribe jobs for extracting the speech. Templates for the same are included in Subtitles-transcribe-job/02_transcribe_lambda_job.yaml
+* StackName: Subtitles-transcribe-lambda
+* Parameters: 
+
+![Alt Image text](/Images/transcibe-lambda-job.png?raw=true "transcribe-lambda-job")
+
+
+* Resources:
+     * * IAM Roles and permissions for the Lambda
+     * * Lambda function to read from the transcribe bucket and trigger transcribe service
+5.	Now, we will create a lambda function to copy extracted text file in the vtt format from transcribe bucket to the translate bucket. Templates are placed in Subtitles-transcribe-job/03_Copy_from_transcribe_to_translation.yaml.
+* StackName: Subtitles-S3Copy
+* Parameters:
+![Alt Image text](/Images/transcribe-to-translate-bucketcopy.png?raw=true "bucketcopy")
+
+ 
+* Resources:
+     * * AWS IAM Roles and policy for the lambda function
+     * * Lambda function to trigger the copy from transcribe bucket to the translate bucket
+6.	Now we will once again update the Subtitles-translate-bucket created in 3rd step. Template for the same are placed in Subtitles-transcribe-job/05_transcribe-s3bucket.yaml. This will add two more parameters.
+* Parameter 
+ 
+
+
+
+7.	Next, mediaconvert buckets will be created. Template for the same is placed in Subtitles-mediaconvert-job/07_mediaconvert-s3bucket.yaml.
+* StackName: Subtitles-mediaconvert-bucket
+* Parameters:
+
+ 
+
+* Resources
+     * * AWS S3 bucket for mediaconvert
+     * * Custom Folders for AWS S3
+     * * AWS IAM Roles and policies for Lambda function to copy from one bucket to another.
+
+8.	Only manual step in this implementation is to create one bucket and push the python code zip to that bucket and make it available to lambda function. Code can be found at Subtitles-mediaconvert-job/mediaconvert_lambda.zip.
+9.	Once done, we will write the mediaconvert copy function and the mediaconvert job creation in the same function. Template for the same is placed in Subtitles-mediaconvert-job/08_mediaconverter-lambda-job-function.yml.
+* StackName: Subtitles-Mediaconvert-copy
+* Parameters: 
+![Alt Image text](/Images/Mediaconvert-copy.png?raw=true "MediaConvertcopy") 
+
+10.	Now, we will update the translation-caption-job template so that event notification can be added as soon as the translated vtt file hits the “output” folder it will be copied to the mediaconvert bucket.
+* StackName: translation-caption-job
+* Parameters
+ 
+![Alt Image text](/Images/translation-parameter-final.png?raw=true "MediaConvertcopy")
+
+Put the video.mp4 file in the “transinput” folder of the transcribe bucket and output will be generated in the “mediavideo” bucket of the mediaconvert bucket. It may take up to 10 to 15 minutes.
