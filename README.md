@@ -120,7 +120,7 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 * Parameters: 
 ![Alt Image text](/Images/Mediaconvert-copy.png?raw=true "MediaConvertcopy") 
 
-10.	Now, we will update the translation-caption-job template so that event notification can be added as soon as the translated vtt file hits the “output” folder it will be copied to the mediaconvert bucket.
+10.	Now, we will update the translation-caption-job template so that event notification can be added as soon as the translated vtt file hits the “output” folder it will be copied to the mediaconvert bucket. Template for the same is placed in Subtitles-translate-job/09_translate-captions-template-cf.yml.
 * StackName: translation-caption-job
 * Parameters
  
