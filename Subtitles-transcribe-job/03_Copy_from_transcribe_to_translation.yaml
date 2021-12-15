@@ -39,32 +39,27 @@ Resources:
 
           logging.basicConfig(level=logging.DEBUG)
           logger = logging.getLogger(__name__)
-
-
           def lambda_handler(event, context):
-              logger.info('request: {}'.format(event))
+              logger.info("request: {}".format(event))
               record = event['Records'][0]
               s3srcbucket = record['s3']['bucket']['name']
               s3srcobject = record['s3']['object']['key']
               dest_bucket = os.environ['Destination_Bucket']
-              print s3srcbucket
-              print dest_bucket
-              print s3srcobject
+              print(s3srcbucket)
+              print(dest_bucket)
+              print(s3srcobject)
               copy_source = {'Bucket': s3srcbucket, 'Key': s3srcobject}
               dest_prefix = os.environ['Destination_Bucket_Prefix']
-              dest_key = dest_prefix + '/' + Path(s3srcobject).name
-              print dest_key
-
+              dest_key = dest_prefix + '/' + Path(s3srcobject).name 
+              print(dest_key)
               # Copy Source Object
-
               copy_source_object = {'Bucket': s3srcbucket, 'Key': s3srcobject}
-
            # S3 copy object operation
 
-              s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
-                             Key=dest_key)
+              s3.copy_object(CopySource=copy_source,
+                                    Bucket=dest_bucket, Key=dest_key)
               return {'statusCode': 200,
-                      'body': json.dumps('Copy Success!')}
+                      'body': json.dumps('Copy Success')}        
       Environment:
         Variables:
           Destination_Bucket:
