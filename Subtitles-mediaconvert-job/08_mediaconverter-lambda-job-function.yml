@@ -184,7 +184,7 @@ Resources:
                     - !Ref AWS::AccountId
                     - ':role/'
                     - !Ref AWS::StackName
-                    - "MediaConvertRole"     
+                    - "-MediaConvertRole"     
 
 Outputs:
   
