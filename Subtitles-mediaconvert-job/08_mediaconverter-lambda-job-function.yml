@@ -6,11 +6,11 @@ Parameters:
     Default: '.vtt'
   S3SrcBucket:
     Type: String
-    Default: translate-captions-bucket-00e954d0-4883-11ec-aab5-12f248c8fd2b
+    Description: "translate-captions-bucket name"
     AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
   S3DestBucket:
     Type: String
-    Default: mediaconvert210700266139-us-east-1
+    Description: "mediaconvert bucket name"
     AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
   Destinationbucketprefix:
     Type: String
@@ -20,13 +20,12 @@ Parameters:
     Default: mediavideo
   S3SrcBucketOrigSrc:
     Type: String
-    Default: transcribebucket210700266139-us-east-1
   S3SrcBucketOrigSrcprefix:
     Type: String
-    Default: transinput
+    Description: "transinput bucket name"
   SourceZipFileBucketName:
     Type: String
-    Default: subtitles-demo-public-package
+    Description: "Demo package s3 bucket name"
 Resources:  
   MediaConvertRole:
     Type: AWS::IAM::Role

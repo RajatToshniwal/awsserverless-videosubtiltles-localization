@@ -28,6 +28,7 @@ Parameters:
   DirsToCreate:
     Description: "Comma delimited list of directories to create."
     Type: CommaDelimitedList
+    Default: "mediacaption,mediavideo,mediaoutput"
 Resources:
   mcS3bucket:
     Type: 'AWS::S3::Bucket'

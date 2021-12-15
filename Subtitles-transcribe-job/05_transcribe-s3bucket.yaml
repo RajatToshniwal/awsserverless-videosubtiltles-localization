@@ -28,12 +28,13 @@ Parameters:
   DirsToCreate:
     Description: "Comma delimited list of directories to create."
     Type: CommaDelimitedList
+    Default: "transinput, transoutput, captions-in, captions-out"
   TranscribeLambdaStack:
     Type: String
-    Default: subtitles-transcribe-lambda
+    Default: Subtitles-transcribe-lambda
   S3CopyBucketLambdaStack:
     Type: String
-    Default: subtitles-transcribe-lambda
+    Default: Subtitles-S3Copy
 Resources:
   transs3bucket:
     Type: 'AWS::S3::Bucket'
