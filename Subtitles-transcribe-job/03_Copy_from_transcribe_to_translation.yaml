@@ -9,7 +9,7 @@ Parameters:
     AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
   S3DestBucket:
     Type: String
-    Default: translate-captions-bucket-00e954d0-4883-11ec-aab5-12f248c8fd2b
+    Description: "translate-captions-bucket complete name"
     AllowedPattern: "[a-zA-Z][a-zA-Z0-9_-]*"
   Destinationbucketprefix:
     Type: String
