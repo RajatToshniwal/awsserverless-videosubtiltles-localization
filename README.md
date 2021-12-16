@@ -120,6 +120,7 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 * StackName: Subtitles-Mediaconvert-copy
 * Parameters: 
 ![Alt Image text](/Images/Mediaconvert-copy.png?raw=true "MediaConvertcopy") 
+**Note: For destination languages other than Hindi, please use "mediaconvert_data_set['Settings']['OutputGroups'][0]['Outputs'][0]['CaptionDescriptions'][0]['LanguageCode']" to substitute the destination language.
 
 10.	Now, we will update the translation-caption-job template so that event notification can be added as soon as the translated vtt file hits the “output” folder it will be copied to the mediaconvert bucket. Template for the same is placed in Subtitles-translate-job/09_translate-captions-template-cf.yml.
 * StackName: translation-caption-job
