@@ -97,7 +97,7 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 * Resources:
      * * AWS IAM Roles and policy for the lambda function
      * * Lambda function to trigger the copy from transcribe bucket to the translate bucket
-6.	Now we will once again update the Subtitles-translate-bucket created in 3rd step. Template for the same are placed in Subtitles-transcribe-job/05_transcribe-s3bucket.yaml. This will add two more parameters.
+6.	Now we will once again update the Subtitles-transcribe-bucket created in 3rd step. Template for the same are placed in Subtitles-transcribe-job/05_transcribe-s3bucket.yaml. This will add two more parameters.
 * Parameter 
  ![Alt Image text](/Images/6_transcribe-s3bucket.png?raw=true "transcribe-s3bucket")
 
