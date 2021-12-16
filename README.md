@@ -56,6 +56,7 @@ https://s3.amazonaws.com/aws-ml-blog/artifacts/translate-captions-files/v2/trans
 ![Alt Image text](/Images/translation-paremeter.png?raw=true "translation-job")
 
 **Note: I have marked one parameters in Red as you will not see them in the initial template, later we will modify this template to include notifications for both transinput and transoutput folder, there we will include this parameters for importing variables from other stacks. This is to avoid circular dependencies of event notifications.**
+**Note: In case, you are changing the destination language from hindi to something else, then you need to modify the json configuration file for mediaconverter as well.**
 
 * Resources:
      * * AWS S3 bucket for translation
